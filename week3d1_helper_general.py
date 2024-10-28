@@ -6,16 +6,16 @@ import re
 import os
 import matplotlib.pyplot as plt
 
-def get_disambiguation_content_springfield():
+def get_disambiguation_content(city_name):
     """
-    Fetch the content of the Springfield disambiguation page using the Wikipedia API
+    Fetch the content of the city's disambiguation page using the Wikipedia API
     """
     base_url = "https://en.wikipedia.org/w/api.php"
     
     # First, get the wiki text content
     params = {
         "action": "parse",
-        "page": "Springfield",
+        "page": city_name,
         "prop": "wikitext",
         "format": "json"
     }
@@ -34,12 +34,12 @@ def get_disambiguation_content_springfield():
         print(f"Error fetching disambiguation page: {e}")
         return None
 
-def parse_us_springfields_from_wikitext(content):
+def parse_us_cities_from_wikitext(content):
     """
-    Parse US Springfield locations from the Wikipedia wikitext content.
-    Returns a list of Springfield locations with their state information.
+    Parse US locations of the city from the Wikipedia wikitext content.
+    Returns a list of locations of the city with their state information.
     """
-    springfields = []
+    cities = []
     in_us_section = False
     
     # Split content into lines
@@ -78,17 +78,17 @@ def parse_us_springfields_from_wikitext(content):
                     if '(' in state_info:
                         state_info = state_info.split('(')[0].strip()
                     
-                    springfields.append({
+                    cities.append({
                         'title': entry,
                         'city': location,
                         'state': state_info
                     })
     
-    return springfields
+    return cities
 
-def get_coordinates_batch_springfields(springfields):
+def get_coordinates_batch(cities):
     """
-    Get coordinates for a list of Springfield locations using batch requests.
+    Get coordinates for a list of city locations using batch requests.
     Handles both coordinate properties and coordinate templates.
     """
     base_url = "https://en.wikipedia.org/w/api.php"
@@ -96,8 +96,8 @@ def get_coordinates_batch_springfields(springfields):
     
     # Process in batches of 50
     batch_size = 50
-    for i in range(0, len(springfields), batch_size):
-        batch = springfields[i:i + batch_size]
+    for i in range(0, len(cities), batch_size):
+        batch = cities[i:i + batch_size]
         titles = [item['title'] for item in batch]
         
         # First try to get coordinates from properties
@@ -170,36 +170,36 @@ def get_coordinates_batch_springfields(springfields):
     
     return pd.DataFrame(results)
 
-def create_springfields_geodataframe():
+def create_cities_geodataframe(city_name):
     """
-    Main function to create a GeoDataFrame of US Springfields
+    Main function to create a GeoDataFrame of US locations of a city
     """
     # Get disambiguation page content
-    print("Fetching Springfield disambiguation page...")
-    content = get_disambiguation_content_springfield()
+    print("Fetching the city's disambiguation page...")
+    content = get_disambiguation_content(city_name)
     
     if content is None:
         raise ValueError("Failed to fetch disambiguation page content")
     
-    # Parse US Springfields
+    # Parse US cities
     print("Parsing Springfield locations...")
-    springfields = parse_us_springfields_from_wikitext(content)
-    print(f"Found {len(springfields)} Springfield locations in US")
+    cities = parse_us_cities_from_wikitext(content)
+    print(f"Found {len(cities)} Springfield locations in US")
     
     # Get coordinates
     print("Fetching coordinates...")
-    springfields_df = get_coordinates_batch_springfields(springfields)
-    print(f"Successfully retrieved coordinates for {len(springfields_df)} locations")
+    cities_df = get_coordinates_batch(cities)
+    print(f"Successfully retrieved coordinates for {len(cities_df)} locations")
     
     # Create GeoDataFrame
-    geometry = [Point(xy) for xy in zip(springfields_df['longitude'], springfields_df['latitude'])]
-    springfields_gdf = gpd.GeoDataFrame(springfields_df, geometry=geometry, crs="EPSG:4326")
+    geometry = [Point(xy) for xy in zip(cities_df['longitude'], cities_df['latitude'])]
+    cities_gdf = gpd.GeoDataFrame(cities_df, geometry=geometry, crs="EPSG:4326")
     
-    return springfields_gdf
+    return cities_gdf
 
-def join_springfields_to_states(springfields_gdf):
+def join_cities_to_states(cities_gdf):
     """
-    Perform spatial join between Springfields and US states shapefile,
+    Perform spatial join between cities and US states shapefile,
     handling column name conflicts properly
     """
     # Download and prepare US states shapefile
@@ -217,7 +217,7 @@ def join_springfields_to_states(springfields_gdf):
     
     # Read states shapefile
     states_gdf = gpd.read_file(f"zip://{zip_path}")
-    states_gdf = states_gdf.to_crs(springfields_gdf.crs)
+    states_gdf = states_gdf.to_crs(cities_gdf.crs)
     
     # Filter out Alaska, Hawaii and Puerto Rico
     states_gdf = states_gdf[~states_gdf['STUSPS'].isin(['AK', 'HI', 'PR'])]
@@ -229,12 +229,12 @@ def join_springfields_to_states(springfields_gdf):
     })
     
     # Before joining, rename original state column if it exists
-    if 'state' in springfields_gdf.columns:
-        springfields_gdf = springfields_gdf.rename(columns={'state': 'state_from_wiki'})
+    if 'state' in cities_gdf.columns:
+        cities_gdf = cities_gdf.rename(columns={'state': 'state_from_wiki'})
     
     # Perform spatial join
     joined = gpd.sjoin(
-        springfields_gdf,
+        cities_gdf,
         states_gdf[['state_name', 'state_abbrev', 'geometry']],
         how='left',
         predicate='within'
@@ -256,9 +256,9 @@ def join_springfields_to_states(springfields_gdf):
     
     return joined
 
-def plot_springfields(joined_gdf, save_path=None):
+def plot_cities(joined_gdf, city_name, save_path=None):
     """
-    Create a map of Springfields with state highlighting
+    Create a map of the specified city with state highlighting
     """
     # Download states shapefile if not done already
     url = "https://www2.census.gov/geo/tiger/GENZ2020/shp/cb_2020_us_state_20m.zip"
@@ -274,15 +274,15 @@ def plot_springfields(joined_gdf, save_path=None):
     # Plot all states in light gray
     states_gdf.plot(ax=ax, color='lightgray', edgecolor='white')
     
-    # Get unique states that have Springfields
-    states_with_springfields = joined_gdf['state_name'].unique()
+    # Get unique states that have the city
+    states_with_city = joined_gdf['state_name'].unique()
     
     # Highlight states with Springfields    
-    states_gdf[states_gdf['NAME'].isin(states_with_springfields)].plot(
+    states_gdf[states_gdf['NAME'].isin(states_with_city)].plot(
         ax=ax, color='lightblue', edgecolor='white'
     )
     
-    # Plot Springfield points
+    # Plot city points
     joined_gdf.plot(ax=ax, color='red', markersize=50)
     
     # Add labels for each Springfield
@@ -296,7 +296,7 @@ def plot_springfields(joined_gdf, save_path=None):
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)
         )
     
-    ax.set_title('US Cities Named Springfield', fontsize=14)
+    ax.set_title(f"US Cities Named {city_name}", fontsize=14)
     plt.axis('off')
     
     if save_path:
@@ -306,15 +306,15 @@ def plot_springfields(joined_gdf, save_path=None):
     
     return fig, ax
 
-def analyze_springfield_distribution(joined_gdf):
+def analyze_cities_distribution(joined_gdf):
     """
-    Analyze the distribution of Springfields across states
+    Analyze the distribution of the cities across states
     """
-    # Count Springfields per state
+    # Count cities per state
     state_counts = joined_gdf.groupby(['state_name', 'state_abbrev']).size().reset_index(name='count')
     state_counts = state_counts.sort_values('count', ascending=False)
     
-    print("\nSpringfield Distribution by State:")
+    print("\City Distribution by State:")
     print(state_counts)
     
     return state_counts
