@@ -218,13 +218,15 @@ def join_springfields_to_states(springfields_gdf):
     # Read states shapefile
     states_gdf = gpd.read_file(f"zip://{zip_path}")
     states_gdf = states_gdf.to_crs(springfields_gdf.crs)
-        
+    
+    # Filter out Alaska, Hawaii and Puerto Rico
+    states_gdf = states_gdf[~states_gdf['STUSPS'].isin(['AK', 'HI', 'PR'])]
+
     # Rename columns in states_gdf to avoid conflicts
     states_gdf = states_gdf.rename(columns={
         'NAME': 'state_name',
         'STUSPS': 'state_abbrev'
     })
-    
     
     # Before joining, rename original state column if it exists
     if 'state' in springfields_gdf.columns:
@@ -262,6 +264,9 @@ def plot_springfields(joined_gdf, save_path=None):
     url = "https://www2.census.gov/geo/tiger/GENZ2020/shp/cb_2020_us_state_20m.zip"
     zip_path = "data/us_states.zip"
     states_gdf = gpd.read_file(f"zip://{zip_path}")
+
+    # Remove Alaska, Hawaii and Puerto Rico
+    states_gdf = states_gdf[~states_gdf['STUSPS'].isin(['AK', 'HI', 'PR'])]
 
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(15, 10))
