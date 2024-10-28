@@ -47,7 +47,7 @@ def parse_us_cities_from_wikitext(content):
     
     for line in lines:
         # Check for US section start
-        if "=== United States ===" in line:
+        if "===United States===" in line:
             in_us_section = True
             continue
         # Check for next section (end of US section)
