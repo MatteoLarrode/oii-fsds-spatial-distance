@@ -175,16 +175,16 @@ def create_cities_geodataframe(city_name):
     Main function to create a GeoDataFrame of US locations of a city
     """
     # Get disambiguation page content
-    print("Fetching the city's disambiguation page...")
+    print(f"Fetching {city_name}'s disambiguation page...")
     content = get_disambiguation_content(city_name)
     
     if content is None:
         raise ValueError("Failed to fetch disambiguation page content")
     
     # Parse US cities
-    print("Parsing Springfield locations...")
+    print(f"Parsing {city_name} locations...")
     cities = parse_us_cities_from_wikitext(content)
-    print(f"Found {len(cities)} Springfield locations in US")
+    print(f"Found {len(cities)} {city_name} locations in US")
     
     # Get coordinates
     print("Fetching coordinates...")
